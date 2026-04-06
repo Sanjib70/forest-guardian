@@ -27,12 +27,14 @@ const Register = () => {
 
     try {
       const response = await axios.post(
-        'http://localhost:5000/api/auth/register', // ✅ explicit backend URL
+        'https://forest-guardian.onrender.com/api/auth/register', // ✅ explicit backend URL
         formData
       )
 
+      console.log(response.data)
+
       localStorage.setItem('token', response.data.token)
-      localStorage.setItem('token', response.data.token)
+      
       localStorage.setItem('user', JSON.stringify(response.data.user))
 
       toast.success('Registration successful!')

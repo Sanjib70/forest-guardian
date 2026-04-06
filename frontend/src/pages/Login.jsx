@@ -24,10 +24,19 @@ const Login = () => {
     setLoading(true)
 
     try {
-      const response = await axios.post(
-        'http://localhost:5000/api/auth/login',
-        formData
-      )
+      const res = await axios.post(
+        "https://forest-guardian.onrender.com/api/auth/login",
+        {
+          email: formData.email,
+          password: formData.password,
+        }
+      );
+
+// ✅ Save token
+      localStorage.setItem("token", res.data.token);
+
+// Optional
+      localStorage.setItem("user", JSON.stringify(res.data.user));
 
       // ✅ SAFE RESPONSE HANDLING
       if (response.data.token) {
