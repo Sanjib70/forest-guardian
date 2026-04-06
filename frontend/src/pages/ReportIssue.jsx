@@ -11,30 +11,34 @@ const ReportIssue = () => {
     status: 'open',
     location: {
       type: 'Point',
-      coordinates: [0, 0]
-    }
+      coordinates: [0, 0],
+    },
   })
 
   const [submittedReports, setSubmittedReports] = useState([])
   const navigate = useNavigate()
 
-  // ✅ Fetch existing reports
+  // ✅ Fetch reports
   useEffect(() => {
     const fetchReports = async () => {
       try {
         const token = localStorage.getItem('token')
-        if (token) {
-          const response = await axios.get(
-            'http://localhost:5000/api/issue-reports',
-            {
-              headers: { Authorization: `Bearer ${token}` }
-            }
-          )
+        if (!token) return
 
-          setSubmittedReports(response.data?.data?.issueReports || [])
-        }
+        const res = await axios.get(
+          'https://forest-guardian.onrender.com/api/issue-reports',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        )
+
+        console.log("FETCH REPORTS:", res.data)
+
+        setSubmittedReports(res.data?.data?.issueReports || [])
       } catch (error) {
-        console.error('Error fetching reports:', error)
+        console.error('FETCH ERROR:', error.response?.data)
       }
     }
 
@@ -46,16 +50,19 @@ const ReportIssue = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          const lng = pos.coords.longitude
+          const lat = pos.coords.latitude
+
           setFormData((prev) => ({
             ...prev,
             location: {
               type: 'Point',
-              coordinates: [pos.coords.longitude, pos.coords.latitude]
-            }
+              coordinates: [Number(lng), Number(lat)],
+            },
           }))
         },
         () => {
-          toast.error('Could not get your location')
+          toast.error('Location permission denied')
         }
       )
     }
@@ -66,80 +73,91 @@ const ReportIssue = () => {
     const { name, value } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }))
   }
 
-  // ✅ Handle submit (FIXED)
+  // ✅ Submit issue (FIXED)
   const handleSubmit = async (e) => {
     e.preventDefault()
 
     // 🔥 Validation
-    if (!formData.description || formData.description.trim() === '') {
+    if (!formData.description.trim()) {
       toast.error('Description is required')
       return
     }
 
+    if (
+      !formData.location.coordinates[0] ||
+      !formData.location.coordinates[1]
+    ) {
+      toast.error('Location not available yet')
+      return
+    }
+
     const finalData = {
-      ...formData,
-      description: formData.description.trim()
+      type: formData.type,
+      description: formData.description.trim(),
+      severity: formData.severity,
+      status: formData.status,
+      location: {
+        type: 'Point',
+        coordinates: [
+          Number(formData.location.coordinates[0]),
+          Number(formData.location.coordinates[1]),
+        ],
+      },
     }
 
     try {
       const token = localStorage.getItem('token')
+
       if (!token) {
+        toast.error('Please login first')
         navigate('/login')
         return
       }
 
-      console.log('Submitting:', finalData)
+      console.log('SUBMITTING:', finalData)
 
-      await axios.post(
-        'http://localhost:5000/api/issue-reports',
-        finalData,   // ✅ FIXED
+      const res = await axios.post(
+        'https://forest-guardian.onrender.com/api/issue-reports',
+        finalData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+          },
         }
       )
+
+      console.log('SUCCESS RESPONSE:', res.data)
 
       toast.success('Issue reported successfully!')
 
       // ✅ Reset form (keep location)
-      setFormData({
-        type: 'illegal_logging',
+      setFormData((prev) => ({
+        ...prev,
         description: '',
-        severity: 'medium',
-        status: 'open',
-        location: formData.location
-      })
+      }))
 
       // ✅ Refresh reports
-      const response = await axios.get(
-        'http://localhost:5000/api/issue-reports',
+      const updated = await axios.get(
+        'https://forest-guardian.onrender.com/api/issue-reports',
         {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       )
 
-      setSubmittedReports(response.data?.data?.issueReports || [])
-
+      setSubmittedReports(updated.data?.data?.issueReports || [])
     } catch (error) {
-      console.error(error.response?.data)
-      toast.error('Error reporting issue')
+      console.error('SUBMIT ERROR:', error.response?.data)
+      toast.error(
+        error.response?.data?.message || 'Error reporting issue'
+      )
     }
-  }
-
-  const getSeverityColor = (severity) => {
-    const colors = {
-      low: 'green',
-      medium: 'yellow',
-      high: 'orange',
-      critical: 'red'
-    }
-    return colors[severity] || 'gray'
   }
 
   const getTypeLabel = (type) => {
@@ -148,7 +166,7 @@ const ReportIssue = () => {
       pollution: 'Pollution',
       wildfire: 'Wildfire',
       poaching: 'Poaching',
-      other: 'Other'
+      other: 'Other',
     }
     return labels[type] || type
   }
@@ -194,7 +212,6 @@ const ReportIssue = () => {
               name="description"
               value={formData.description}
               onChange={handleChange}
-              required
               rows="5"
               placeholder="Describe the issue..."
               className="w-full px-3 py-2 border rounded"
