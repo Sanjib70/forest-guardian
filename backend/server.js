@@ -23,7 +23,10 @@ app.use((req, res, next) => {
 /* ======================
    Middleware
 ====================== */
-app.use(cors());
+app.use(cors({
+  origin: "https://forest-guardian-tau.vercel.app/",
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
